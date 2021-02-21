@@ -6,7 +6,7 @@ import Data.Either (Either(..))
 import Effect (Effect)
 import Effect.Class (liftEffect)
 import Foreign.Object (empty)
-import Prelude (class Show, class Eq, ($), (<>), (<$>), (==), discard, show, Unit)
+import Prelude (class Eq, class Show, Unit, apply, discard, map, show, unit, ($), (<$>), (<>), (==))
 import Test.QuickCheck (Result, quickCheck, (<?>))
 import Test.Unit (suite, test)
 import Test.Unit.Main (runTest)
@@ -15,20 +15,26 @@ import Turf.Helpers (Feature, FeatureProperties, LineStringFeature, LineStringGe
 main :: Effect Unit
 main =
   runTest do
-    suite "Codec round trips" do
-      test "PointGeom" $ liftEffect $ quickCheck (\(x :: PointGeom) -> codecRoundTrip x)
-      test "PointFeature" $ liftEffect $ quickCheck (\(x :: PointFeature) -> codecRoundTrip x)
-      test "MultiPointGeom" $ liftEffect $ quickCheck (\(x :: MultiPointGeom) -> codecRoundTrip x)
-      test "MultiPointFeature" $ liftEffect $ quickCheck (\(x :: MultiPointFeature) -> codecRoundTrip x)
-      test "LineStringGeom" $ liftEffect $ quickCheck (\(x :: LineStringGeom) -> codecRoundTrip x)
-      test "LineStringFeature" $ liftEffect $ quickCheck (\(x :: LineStringFeature) -> codecRoundTrip x)
-      test "MultiLineStringGeom" $ liftEffect $ quickCheck (\(x :: MultiLineStringGeom) -> codecRoundTrip x)
-      test "MultiLineStringFeature" $ liftEffect $ quickCheck (\(x :: MultiLineStringFeature) -> codecRoundTrip x)
-    suite "JavaScript round trips" do
-      test "Construct a point" $ liftEffect $ quickCheck (\(x :: PointGeom) -> jsRoundTrip x point)
-      test "Construct a multipoint" $ liftEffect $ quickCheck (\(x :: MultiPointGeom) -> jsRoundTrip x multiPoint)
-      test "Construct a linestring" $ liftEffect $ quickCheck (\(x :: LineStringGeom) -> jsRoundTrip x lineString)
-      test "Construct a multilinestring" $ liftEffect $ quickCheck (\(x :: MultiLineStringGeom) -> jsRoundTrip x multiLineString)
+    suite "Round trips" do
+      test "JSON codecs" $ liftEffect
+        $ ado
+            quickCheck (\(x :: PointGeom) -> codecRoundTrip x)
+            quickCheck (\(x :: PointFeature) -> codecRoundTrip x)
+            quickCheck (\(x :: MultiPointGeom) -> codecRoundTrip x)
+            quickCheck (\(x :: MultiPointFeature) -> codecRoundTrip x)
+            quickCheck (\(x :: LineStringGeom) -> codecRoundTrip x)
+            quickCheck (\(x :: LineStringFeature) -> codecRoundTrip x)
+            quickCheck (\(x :: MultiLineStringGeom) -> codecRoundTrip x)
+            quickCheck (\(x :: MultiLineStringFeature) -> codecRoundTrip x)
+            in unit
+      test "JavaScript FFI calls"
+        $ liftEffect
+        $ ado
+            quickCheck (\(x :: PointGeom) -> jsRoundTrip x point)
+            quickCheck (\(x :: MultiPointGeom) -> jsRoundTrip x multiPoint)
+            quickCheck (\(x :: LineStringGeom) -> jsRoundTrip x lineString)
+            quickCheck (\(x :: MultiLineStringGeom) -> jsRoundTrip x multiLineString)
+            in unit
 
 jsRoundTrip :: forall a. Eq a => Show a => EncodeJson a => a -> (a -> FeatureProperties -> Either JsonDecodeError (Feature a)) -> Result
 jsRoundTrip geom f =
