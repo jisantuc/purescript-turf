@@ -41,10 +41,5 @@ jobs:
       - name: Build the project
         run: npm run build
 
-      - name: Build and bundle tests
-        run: spago bundle-module --main Test.Main --to output/index.js && ./node_modules/@vercel/ncc/dist/ncc/cli.js build --minify test/index.js
-
       - name: Run tests
-        uses: ./test
-        with:
-          testinput: test
+        run: spago test
