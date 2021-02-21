@@ -4,10 +4,6 @@
     "build": "spago build --purs-args '--censor-lib --strict --censor-codes=UserDefinedWarning'",
     "test": "spago test --no-install"
   },
-  "devDependencies": {
-    "@vercel/ncc": "^0.24.1",
-    "eslint": "^7.6.0"
-  },
   "dependencies": {
     "@turf/helpers": "^6.3.0"
   }
