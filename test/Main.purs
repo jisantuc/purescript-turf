@@ -6,11 +6,46 @@ import Data.Either (Either(..))
 import Effect (Effect)
 import Effect.Class (liftEffect)
 import Foreign.Object (empty)
-import Prelude (class Eq, class Show, Unit, apply, discard, map, show, unit, ($), (<$>), (<>), (==))
+import Prelude
+  ( class Eq
+  , class Show
+  , Unit
+  , apply
+  , discard
+  , map
+  , show
+  , unit
+  , ($)
+  , (<$>)
+  , (<>)
+  , (==)
+  )
 import Test.QuickCheck (Result, quickCheck, (<?>))
 import Test.Unit (suite, test)
 import Test.Unit.Main (runTest)
-import Turf.Helpers (Feature, FeatureProperties, LineStringFeature, LineStringGeom, MultiLineStringGeom, MultiPointFeature, MultiPointGeom, PointFeature, PointGeom, MultiLineStringFeature, featureGeometry, lineString, multiLineString, multiPoint, point)
+import Turf.Helpers
+  ( Feature
+  , FeatureProperties
+  , LineStringFeature
+  , LineStringGeom
+  , MultiLineStringFeature
+  , MultiLineStringGeom
+  , MultiPointFeature
+  , MultiPointGeom
+  , MultiPolygonFeature
+  , MultiPolygonGeom
+  , PointFeature
+  , PointGeom
+  , PolygonFeature
+  , PolygonGeom
+  , featureGeometry
+  , lineString
+  , multiLineString
+  , multiPoint
+  , multiPolygon
+  , point
+  , polygon
+  )
 
 main :: Effect Unit
 main =
@@ -26,6 +61,10 @@ main =
             quickCheck (\(x :: LineStringFeature) -> codecRoundTrip x)
             quickCheck (\(x :: MultiLineStringGeom) -> codecRoundTrip x)
             quickCheck (\(x :: MultiLineStringFeature) -> codecRoundTrip x)
+            quickCheck (\(x :: PolygonGeom) -> codecRoundTrip x)
+            quickCheck (\(x :: PolygonFeature) -> codecRoundTrip x)
+            quickCheck (\(x :: MultiPolygonGeom) -> codecRoundTrip x)
+            quickCheck (\(x :: MultiPolygonFeature) -> codecRoundTrip x)
             in unit
       test "JavaScript FFI calls"
         $ liftEffect
@@ -34,6 +73,8 @@ main =
             quickCheck (\(x :: MultiPointGeom) -> jsRoundTrip x multiPoint)
             quickCheck (\(x :: LineStringGeom) -> jsRoundTrip x lineString)
             quickCheck (\(x :: MultiLineStringGeom) -> jsRoundTrip x multiLineString)
+            quickCheck (\(x :: PolygonGeom) -> jsRoundTrip x polygon)
+            quickCheck (\(x :: MultiPolygonGeom) -> jsRoundTrip x multiPolygon)
             in unit
 
 jsRoundTrip :: forall a. Eq a => Show a => EncodeJson a => a -> (a -> FeatureProperties -> Either JsonDecodeError (Feature a)) -> Result

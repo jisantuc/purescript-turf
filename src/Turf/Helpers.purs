@@ -15,12 +15,20 @@ module Turf.Helpers
   , MultiPointGeom(..)
   , MultiPointFeature
   , multiPoint
+  , LinearRing
+  , mkLinearRing
+  , PolygonGeom(..)
+  , PolygonFeature
+  , polygon
+  , MultiPolygonGeom(..)
+  , MultiPolygonFeature
+  , multiPolygon
   ) where
 
 import Data.Argonaut.Core (Json, stringify, toObject)
 import Data.Argonaut.Decode (class DecodeJson, JsonDecodeError(..), decodeJson, (.:), (.:?))
 import Data.Argonaut.Encode (class EncodeJson, encodeJson, (:=), (~>))
-import Data.Array (drop, take, (:))
+import Data.Array (drop, head, last, snoc, take, (:))
 import Data.Either (Either(..))
 import Data.Function.Uncurried (Fn2, runFn2)
 import Data.Maybe (Maybe(..), fromMaybe)
@@ -36,13 +44,16 @@ type FeatureProperties
 type Coord
   = Tuple Number Number
 
+noCoordinates :: JsonDecodeError
+noCoordinates = TypeMismatch "Expected to decode from object including coordinates key"
+
 newtype PointGeom
   = PointGeom Coord
 
 instance decodeJsonPointGeom :: DecodeJson PointGeom where
   decodeJson js = case toObject js of
     Just obj -> PointGeom <$> obj .: "coordinates"
-    Nothing -> Left $ TypeMismatch "Expected to decode from object including coordinates key"
+    Nothing -> Left noCoordinates
 
 instance encodeJsonPointGeom :: EncodeJson PointGeom where
   encodeJson (PointGeom coord) = encodeJson { type: "Point", coordinates: coord }
@@ -76,7 +87,7 @@ instance decodeJsonMultiPointGeom :: DecodeJson MultiPointGeom where
     Just obj -> do
       coords <- obj .: "coordinates"
       pure <<< MultiPointGeom $ PointGeom <$> coords
-    Nothing -> Left $ TypeMismatch "Expected to decode from object including coordinates key"
+    Nothing -> Left noCoordinates
 
 instance encodeMultiPointGeom :: EncodeJson MultiPointGeom where
   encodeJson (MultiPointGeom coords) =
@@ -108,7 +119,7 @@ derive newtype instance showLineStringGeom :: Show LineStringGeom
 instance decodeJsonLineStringGeom :: DecodeJson LineStringGeom where
   decodeJson js = case toObject js of
     Just obj -> obj .: "coordinates" >>= lineStringGeomFromArray js
-    Nothing -> Left $ TypeMismatch "Expected to decode from object including coordinates key"
+    Nothing -> Left noCoordinates
 
 instance encodeJsonLineStringGeom :: EncodeJson LineStringGeom where
   encodeJson (LineStringGeom { first, next, rest }) =
@@ -130,18 +141,119 @@ instance decodeJsonMultiLineStringGeom :: DecodeJson MultiLineStringGeom where
     Just obj ->
       obj .: "coordinates"
         >>= (\arrs -> MultiLineStringGeom <$> (traverse (lineStringGeomFromArray js) arrs))
-    Nothing -> Left $ TypeMismatch "Expected to decode from object including coordinates key"
+    Nothing -> Left noCoordinates
 
 instance encodeJsonMultiLineStringGeom :: EncodeJson MultiLineStringGeom where
   encodeJson (MultiLineStringGeom lineStrings) =
     encodeJson
       { type: "MultiLineString", coordinates: lineStringGeomToArray <$> lineStrings }
 
+newtype LinearRing
+  = LinearRing
+  { first :: PointGeom
+  , second :: PointGeom
+  , third :: PointGeom
+  , rest :: Array PointGeom
+  }
+
+mkLinearRing :: PointGeom -> PointGeom -> PointGeom -> Array PointGeom -> LinearRing
+mkLinearRing first second third rest = fixRing $ LinearRing { first, second, third, rest }
+
+linearRingFromCoordinateArray :: Array Coord -> Either JsonDecodeError LinearRing
+linearRingFromCoordinateArray coords = case take 3 coords of
+  [ first, second, third ] ->
+    Right
+      $ mkLinearRing
+          (PointGeom first)
+          (PointGeom second)
+          (PointGeom third)
+          (PointGeom <$> drop 3 coords)
+  _ -> Left $ TypeMismatch "Expected at least three points to construct a linear ring"
+
+linearRingToCoordinateArray :: LinearRing -> Array (Array Number)
+linearRingToCoordinateArray (LinearRing { first, second, third, rest }) = toArray <$> first : second : third : rest
+
+derive newtype instance eqLinearRing :: Eq LinearRing
+
+derive newtype instance showLinearRing :: Show LinearRing
+
+instance arbLinearRing :: Arbitrary LinearRing where
+  arbitrary = do
+    first <- arbitrary
+    second <- arbitrary
+    third <- arbitrary
+    pure $ mkLinearRing first second third []
+
 newtype PolygonGeom
-  = PolygonGeom (Array (Array PointGeom))
+  = PolygonGeom
+  { exteriorRing :: LinearRing
+  , holes :: Array LinearRing
+  }
+
+fixRing :: LinearRing -> LinearRing
+fixRing ring@(LinearRing { first, second, third, rest }) = case last rest of
+  Just p -> if (first == p) then ring else LinearRing { first, second, third, rest: rest `snoc` first }
+  Nothing -> LinearRing { first, second, third, rest: [ first ] }
+
+polygonGeomFromArray :: Json -> Array (Array Coord) -> Either JsonDecodeError PolygonGeom
+polygonGeomFromArray js coordArrays =
+  let
+    ringsDecoded = traverse linearRingFromCoordinateArray coordArrays
+  in
+    ringsDecoded
+      >>= ( \rings -> case head rings of
+            Just exterior -> Right $ PolygonGeom { exteriorRing: exterior, holes: drop 1 rings }
+            Nothing -> Left $ UnexpectedValue js
+        )
+
+polygonGeomToArray :: PolygonGeom -> Array (Array (Array Number))
+polygonGeomToArray (PolygonGeom { exteriorRing, holes }) = linearRingToCoordinateArray <$> exteriorRing : holes
+
+derive newtype instance eqPolygonGeom :: Eq PolygonGeom
+
+instance arbPolygonGeom :: Arbitrary PolygonGeom where
+  arbitrary = do
+    exteriorRing <- arbitrary
+    holes <- arbitrary
+    pure
+      $ PolygonGeom { exteriorRing, holes }
+
+derive newtype instance showPolygonGeom :: Show PolygonGeom
+
+instance decodeJsonPolygonGeom :: DecodeJson PolygonGeom where
+  decodeJson js = case toObject js of
+    Just obj ->
+      obj .: "coordinates"
+        >>= polygonGeomFromArray js
+    Nothing -> Left $ TypeMismatch ""
+
+instance encodeJsonPolygonGeom :: EncodeJson PolygonGeom where
+  encodeJson poly =
+    encodeJson
+      { type: "Polygon", coordinates: polygonGeomToArray poly
+      }
 
 newtype MultiPolygonGeom
   = MultiPolygonGeom (Array PolygonGeom)
+
+derive newtype instance eqMultiPolygonGeom :: Eq MultiPolygonGeom
+
+derive newtype instance showMultiPolygonGeom :: Show MultiPolygonGeom
+
+derive newtype instance arbMultiPolygonGeom :: Arbitrary MultiPolygonGeom
+
+instance decodeJsonMultiPolygonGeom :: DecodeJson MultiPolygonGeom where
+  decodeJson js = case toObject js of
+    Just obj ->
+      obj .: "coordinates"
+        >>= (\arrs -> MultiPolygonGeom <$> (traverse (polygonGeomFromArray js) arrs))
+    Nothing -> Left noCoordinates
+
+instance encodeJsonMultiPolygonGeom :: EncodeJson MultiPolygonGeom where
+  encodeJson (MultiPolygonGeom polygons) =
+    encodeJson
+      { type: "MultiPolygon", coordinates: polygonGeomToArray <$> polygons
+      }
 
 data Feature a
   = Feature
@@ -178,7 +290,10 @@ instance arbFeature :: Arbitrary a => Arbitrary (Feature a) where
     pure $ Feature { geometry, properties }
 
 instance eqFeature :: Eq a => Eq (Feature a) where
-  eq (Feature { geometry: geom1, properties: prop1 }) (Feature { geometry: geom2, properties: prop2 }) = geom1 == geom2 && prop1 == prop2
+  eq (Feature { geometry: geom1, properties: prop1 }) ( Feature
+      { geometry: geom2, properties: prop2
+    }
+  ) = geom1 == geom2 && prop1 == prop2
 
 type PointFeature
   = Feature PointGeom
@@ -191,6 +306,12 @@ type LineStringFeature
 
 type MultiLineStringFeature
   = Feature MultiLineStringGeom
+
+type PolygonFeature
+  = Feature PolygonGeom
+
+type MultiPolygonFeature
+  = Feature MultiPolygonGeom
 
 foreign import pointImpl :: Fn2 (Array Number) (Object Json) Json
 
@@ -211,3 +332,17 @@ foreign import multiLineStringImpl :: Fn2 (Array (Array (Array Number))) (Object
 
 multiLineString :: MultiLineStringGeom -> FeatureProperties -> Either JsonDecodeError MultiLineStringFeature
 multiLineString (MultiLineStringGeom lineStrings) props = decodeJson $ runFn2 multiLineStringImpl (lineStringGeomToArray <$> lineStrings) props
+
+foreign import polygonImpl :: Fn2 (Array (Array (Array Number))) (Object Json) Json
+
+polygon :: PolygonGeom -> Object Json -> Either JsonDecodeError PolygonFeature
+polygon poly props =
+  decodeJson
+    $ runFn2 polygonImpl (polygonGeomToArray poly) props
+
+foreign import multiPolygonImpl :: Fn2 (Array (Array (Array (Array Number)))) (Object Json) Json
+
+multiPolygon :: MultiPolygonGeom -> Object Json -> Either JsonDecodeError MultiPolygonFeature
+multiPolygon (MultiPolygonGeom polys) props =
+  decodeJson
+    $ runFn2 multiPolygonImpl (polygonGeomToArray <$> polys) props
