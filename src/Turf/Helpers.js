@@ -14,7 +14,7 @@ exports.multiLineStringImpl = helpers.multiLineString;
 
 exports.multiPointImpl = helpers.multiPoint;
 
-// exports.multiPolygonImpl = helpers.multiPolygon;
+exports.multiPolygonImpl = helpers.multiPolygon;
 
 exports.pointImpl = helpers.point;
 

@@ -17,9 +17,12 @@ module Turf.Helpers
   , multiPoint
   , LinearRing
   , mkLinearRing
-  , PolygonGeom
+  , PolygonGeom(..)
   , PolygonFeature
   , polygon
+  , MultiPolygonGeom(..)
+  , MultiPolygonFeature
+  , multiPolygon
   ) where
 
 import Data.Argonaut.Core (Json, stringify, toObject)
@@ -203,6 +206,9 @@ polygonGeomFromArray js coordArrays =
             Nothing -> Left $ UnexpectedValue js
         )
 
+polygonGeomToArray :: PolygonGeom -> Array (Array (Array Number))
+polygonGeomToArray (PolygonGeom { exteriorRing, holes }) = linearRingToCoordinateArray <$> exteriorRing : holes
+
 derive newtype instance eqPolygonGeom :: Eq PolygonGeom
 
 instance arbPolygonGeom :: Arbitrary PolygonGeom where
@@ -222,10 +228,32 @@ instance decodeJsonPolygonGeom :: DecodeJson PolygonGeom where
     Nothing -> Left $ TypeMismatch ""
 
 instance encodeJsonPolygonGeom :: EncodeJson PolygonGeom where
-  encodeJson (PolygonGeom { exteriorRing, holes }) = encodeJson { type: "Polygon", coordinates: linearRingToCoordinateArray <$> exteriorRing : holes }
+  encodeJson poly =
+    encodeJson
+      { type: "Polygon", coordinates: polygonGeomToArray poly
+      }
 
 newtype MultiPolygonGeom
   = MultiPolygonGeom (Array PolygonGeom)
+
+derive newtype instance eqMultiPolygonGeom :: Eq MultiPolygonGeom
+
+derive newtype instance showMultiPolygonGeom :: Show MultiPolygonGeom
+
+derive newtype instance arbMultiPolygonGeom :: Arbitrary MultiPolygonGeom
+
+instance decodeJsonMultiPolygonGeom :: DecodeJson MultiPolygonGeom where
+  decodeJson js = case toObject js of
+    Just obj ->
+      obj .: "coordinates"
+        >>= (\arrs -> MultiPolygonGeom <$> (traverse (polygonGeomFromArray js) arrs))
+    Nothing -> Left noCoordinates
+
+instance encodeJsonMultiPolygonGeom :: EncodeJson MultiPolygonGeom where
+  encodeJson (MultiPolygonGeom polygons) =
+    encodeJson
+      { type: "MultiPolygon", coordinates: polygonGeomToArray <$> polygons
+      }
 
 data Feature a
   = Feature
@@ -262,7 +290,10 @@ instance arbFeature :: Arbitrary a => Arbitrary (Feature a) where
     pure $ Feature { geometry, properties }
 
 instance eqFeature :: Eq a => Eq (Feature a) where
-  eq (Feature { geometry: geom1, properties: prop1 }) (Feature { geometry: geom2, properties: prop2 }) = geom1 == geom2 && prop1 == prop2
+  eq (Feature { geometry: geom1, properties: prop1 }) ( Feature
+      { geometry: geom2, properties: prop2
+    }
+  ) = geom1 == geom2 && prop1 == prop2
 
 type PointFeature
   = Feature PointGeom
@@ -278,6 +309,9 @@ type MultiLineStringFeature
 
 type PolygonFeature
   = Feature PolygonGeom
+
+type MultiPolygonFeature
+  = Feature MultiPolygonGeom
 
 foreign import pointImpl :: Fn2 (Array Number) (Object Json) Json
 
@@ -302,9 +336,13 @@ multiLineString (MultiLineStringGeom lineStrings) props = decodeJson $ runFn2 mu
 foreign import polygonImpl :: Fn2 (Array (Array (Array Number))) (Object Json) Json
 
 polygon :: PolygonGeom -> Object Json -> Either JsonDecodeError PolygonFeature
-polygon (PolygonGeom { exteriorRing, holes }) props =
-  let
-    coords = exteriorRing : holes
-  in
-    decodeJson
-      $ runFn2 polygonImpl (linearRingToCoordinateArray <$> coords) props
+polygon poly props =
+  decodeJson
+    $ runFn2 polygonImpl (polygonGeomToArray poly) props
+
+foreign import multiPolygonImpl :: Fn2 (Array (Array (Array (Array Number)))) (Object Json) Json
+
+multiPolygon :: MultiPolygonGeom -> Object Json -> Either JsonDecodeError MultiPolygonFeature
+multiPolygon (MultiPolygonGeom polys) props =
+  decodeJson
+    $ runFn2 multiPolygonImpl (polygonGeomToArray <$> polys) props
