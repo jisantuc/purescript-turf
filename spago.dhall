@@ -2,7 +2,7 @@
 Welcome to a Spago project!
 You can edit this file as you like.
 -}
-{ name = "my-project"
+{ name = "turf"
 , dependencies =
   [ "argonaut-codecs"
   , "argonaut-core"
@@ -16,4 +16,6 @@ You can edit this file as you like.
   ]
 , packages = ./packages.dhall
 , sources = [ "src/**/*.purs", "test/**/*.purs" ]
+, license = "MIT"
+, repository = "https://github.com/jisantuc/purescript-turf.git"
 }
