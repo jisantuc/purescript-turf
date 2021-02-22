@@ -18,4 +18,4 @@ exports.multiPointImpl = helpers.multiPoint;
 
 exports.pointImpl = helpers.point;
 
-// exports.polygonImpl = helpers.polygon;
+exports.polygonImpl = helpers.polygon;

@@ -10,7 +10,7 @@ import Prelude (class Eq, class Show, Unit, apply, discard, map, show, unit, ($)
 import Test.QuickCheck (Result, quickCheck, (<?>))
 import Test.Unit (suite, test)
 import Test.Unit.Main (runTest)
-import Turf.Helpers (Feature, FeatureProperties, LineStringFeature, LineStringGeom, MultiLineStringGeom, MultiPointFeature, MultiPointGeom, PointFeature, PointGeom, MultiLineStringFeature, featureGeometry, lineString, multiLineString, multiPoint, point)
+import Turf.Helpers (Feature, FeatureProperties, LineStringFeature, LineStringGeom, MultiLineStringFeature, MultiLineStringGeom, MultiPointFeature, MultiPointGeom, PointFeature, PointGeom, PolygonFeature, PolygonGeom, featureGeometry, lineString, multiLineString, multiPoint, point, polygon)
 
 main :: Effect Unit
 main =
@@ -26,6 +26,8 @@ main =
             quickCheck (\(x :: LineStringFeature) -> codecRoundTrip x)
             quickCheck (\(x :: MultiLineStringGeom) -> codecRoundTrip x)
             quickCheck (\(x :: MultiLineStringFeature) -> codecRoundTrip x)
+            quickCheck (\(x :: PolygonGeom) -> codecRoundTrip x)
+            quickCheck (\(x :: PolygonFeature) -> codecRoundTrip x)
             in unit
       test "JavaScript FFI calls"
         $ liftEffect
@@ -34,6 +36,7 @@ main =
             quickCheck (\(x :: MultiPointGeom) -> jsRoundTrip x multiPoint)
             quickCheck (\(x :: LineStringGeom) -> jsRoundTrip x lineString)
             quickCheck (\(x :: MultiLineStringGeom) -> jsRoundTrip x multiLineString)
+            quickCheck (\(x :: PolygonGeom) -> jsRoundTrip x polygon)
             in unit
 
 jsRoundTrip :: forall a. Eq a => Show a => EncodeJson a => a -> (a -> FeatureProperties -> Either JsonDecodeError (Feature a)) -> Result
