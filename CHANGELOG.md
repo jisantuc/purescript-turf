@@ -7,3 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Changed
 - Made test runners async within each type of round trip [#2](https://github.com/jisantuc/purescript-turf/pull/2) (@jisantuc)
+
+### Added
+- Added docstrings for all methods exported from Turf.Helpers [#4](https://github.com/jisantuc/purescript-turf/pull/4) (@jisantuc)
