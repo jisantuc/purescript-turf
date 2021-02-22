@@ -1,0 +1,27 @@
+{
+    "name": "purescript-turf",
+    "license": [
+        "MIT"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/jisantuc/purescript-turf.git"
+    },
+    "ignore": [
+        "**/.*",
+        "node_modules",
+        "bower_components",
+        "output"
+    ],
+    "dependencies": {
+        "purescript-argonaut-codecs": "^v7.0.0",
+        "purescript-argonaut-core": "^v5.1.0",
+        "purescript-assert": "^v4.1.0",
+        "purescript-console": "^v4.4.0",
+        "purescript-effect": "^v2.0.1",
+        "purescript-foreign-object": "^v2.0.3",
+        "purescript-psci-support": "^v4.0.0",
+        "purescript-quickcheck": "^v6.1.0",
+        "purescript-test-unit": "^v15.0.0"
+    }
+}
