@@ -38,15 +38,20 @@ import Foreign.Object (Object, empty)
 import Prelude (class Eq, class Show, apply, bind, map, pure, ($), (&&), (<$>), (<<<), (==), (>>=))
 import Test.QuickCheck (class Arbitrary, arbitrary)
 
+-- | FeatureProperties represent the JSON object that GeoJSON features
+-- | have in their `properties` field.
 type FeatureProperties
   = Object Json
 
+-- | Coords are an alias for pairs of numbers, more or less matching the `Position`
+-- | type alias in turf.
 type Coord
   = Tuple Number Number
 
 noCoordinates :: JsonDecodeError
 noCoordinates = TypeMismatch "Expected to decode from object including coordinates key"
 
+-- | A `PointGeom` is nothing more than a newtype over `Coords`
 newtype PointGeom
   = PointGeom Coord
 
@@ -70,6 +75,7 @@ unPointGeom (PointGeom c) = c
 toArray :: PointGeom -> Array Number
 toArray = (\tup -> [ fst tup, snd tup ]) <<< unPointGeom
 
+-- | A `MultiPointGeom` represents a collection of un-connected `PointGeoms`
 newtype MultiPointGeom
   = MultiPointGeom (Array PointGeom)
 
@@ -95,6 +101,7 @@ instance encodeMultiPointGeom :: EncodeJson MultiPointGeom where
       { type: "MultiPoint", coordinates: toArray <$> coords
       }
 
+-- | A `LineStringGeom` is at least two points forming a linestring.
 newtype LineStringGeom
   = LineStringGeom
   { first :: PointGeom
@@ -127,6 +134,7 @@ instance encodeJsonLineStringGeom :: EncodeJson LineStringGeom where
       { type: "LineString", coordinates: toArray <$> first : next : rest
       }
 
+-- | A `MultiLineStringGeom` is a collection of unrelated LineStringGeoms
 newtype MultiLineStringGeom
   = MultiLineStringGeom (Array LineStringGeom)
 
@@ -148,6 +156,8 @@ instance encodeJsonMultiLineStringGeom :: EncodeJson MultiLineStringGeom where
     encodeJson
       { type: "MultiLineString", coordinates: lineStringGeomToArray <$> lineStrings }
 
+-- | A `LinearRing` is a collection of at least four points where the first and last
+-- | points are the same.
 newtype LinearRing
   = LinearRing
   { first :: PointGeom
@@ -156,6 +166,9 @@ newtype LinearRing
   , rest :: Array PointGeom
   }
 
+-- | Construct a linear ring from the first three points and the remaining points.
+-- | This method ensures that if you've failed to match the first and last points,
+-- | a correct last point will be appended for you.
 mkLinearRing :: PointGeom -> PointGeom -> PointGeom -> Array PointGeom -> LinearRing
 mkLinearRing first second third rest = fixRing $ LinearRing { first, second, third, rest }
 
@@ -184,6 +197,10 @@ instance arbLinearRing :: Arbitrary LinearRing where
     third <- arbitrary
     pure $ mkLinearRing first second third []
 
+-- | A `PolygonGeom` represents an exterior with possibly zero holes.
+-- | Note that nothing forbids you from making holes _outside_ the polygon.
+-- | @turf/helpers `polygon` method also doesn't get mad about this, so
+-- | while it doesn't really make sense, it's technically allowed.
 newtype PolygonGeom
   = PolygonGeom
   { exteriorRing :: LinearRing
@@ -233,6 +250,7 @@ instance encodeJsonPolygonGeom :: EncodeJson PolygonGeom where
       { type: "Polygon", coordinates: polygonGeomToArray poly
       }
 
+-- | A `MultiPolygonGeom` represents a collection of `PolygonGeoms`.
 newtype MultiPolygonGeom
   = MultiPolygonGeom (Array PolygonGeom)
 
@@ -255,12 +273,15 @@ instance encodeJsonMultiPolygonGeom :: EncodeJson MultiPolygonGeom where
       { type: "MultiPolygon", coordinates: polygonGeomToArray <$> polygons
       }
 
+-- | A `Feature a` represents a GeoJSON feature with geometry of type `a`.
 data Feature a
   = Feature
     { geometry :: a
-    , properties :: Object Json
+    , properties :: FeatureProperties
     }
 
+-- | Since `turf` returns features from all of its helper methods, it's convenient
+-- | to have a short-hand for getting the geometry back out.
 featureGeometry :: forall a. Feature a -> a
 featureGeometry (Feature { geometry }) = geometry
 
@@ -295,54 +316,66 @@ instance eqFeature :: Eq a => Eq (Feature a) where
     }
   ) = geom1 == geom2 && prop1 == prop2
 
+-- | A `PointFeature` is a `Feature` with geometry of type `PointGeom`
 type PointFeature
   = Feature PointGeom
 
+-- | A `MultiPointFeature` is a `Feature` with geometry of type `MultiPointGeom`
 type MultiPointFeature
   = Feature MultiPointGeom
 
+-- | A `LineStringFeature` is a `Feature` with geometry of type `LineStringGeom`
 type LineStringFeature
   = Feature LineStringGeom
 
+-- | A `MultiLineStringFeature` is a `Feature` with geometry of type `MultiLineStringGeom`
 type MultiLineStringFeature
   = Feature MultiLineStringGeom
 
+-- | A `PolygonFeature` is a `Feature` with geometry of type `PolygonGeom`
 type PolygonFeature
   = Feature PolygonGeom
 
+-- | A `MultiPolygonFeature` is a `Feature` with geometry of type `MultiPolygonGeom`
 type MultiPolygonFeature
   = Feature MultiPolygonGeom
 
-foreign import pointImpl :: Fn2 (Array Number) (Object Json) Json
+foreign import pointImpl :: Fn2 (Array Number) FeatureProperties Json
 
+-- | Construct a `PointFeature` using the @turf/helpers `point` method
 point :: PointGeom -> FeatureProperties -> Either JsonDecodeError PointFeature
 point geom props = decodeJson $ runFn2 pointImpl (toArray geom) props
 
-foreign import multiPointImpl :: Fn2 (Array (Array Number)) (Object Json) Json
+foreign import multiPointImpl :: Fn2 (Array (Array Number)) FeatureProperties Json
 
+-- | Construct a `MultiPointFeature` using the @turf/helpers `multiPoint` method
 multiPoint :: MultiPointGeom -> FeatureProperties -> Either JsonDecodeError MultiPointFeature
 multiPoint (MultiPointGeom points) props = decodeJson $ runFn2 multiPointImpl (toArray <$> points) props
 
-foreign import lineStringImpl :: Fn2 (Array (Array Number)) (Object Json) Json
+foreign import lineStringImpl :: Fn2 (Array (Array Number)) FeatureProperties Json
 
+-- | Construct a `LineStringFeature` using the @turf/helpers `lineString` method
 lineString :: LineStringGeom -> FeatureProperties -> Either JsonDecodeError LineStringFeature
 lineString lineStringGeom props = decodeJson $ runFn2 lineStringImpl (lineStringGeomToArray lineStringGeom) props
 
-foreign import multiLineStringImpl :: Fn2 (Array (Array (Array Number))) (Object Json) Json
+foreign import multiLineStringImpl :: Fn2 (Array (Array (Array Number))) FeatureProperties Json
 
+-- | Construct a `MultiLineStringFeature` using the @turf/helpers `multiLineString` method
 multiLineString :: MultiLineStringGeom -> FeatureProperties -> Either JsonDecodeError MultiLineStringFeature
 multiLineString (MultiLineStringGeom lineStrings) props = decodeJson $ runFn2 multiLineStringImpl (lineStringGeomToArray <$> lineStrings) props
 
-foreign import polygonImpl :: Fn2 (Array (Array (Array Number))) (Object Json) Json
+foreign import polygonImpl :: Fn2 (Array (Array (Array Number))) FeatureProperties Json
 
-polygon :: PolygonGeom -> Object Json -> Either JsonDecodeError PolygonFeature
+-- | Construct a `PolygonFeature` using the @turf/helpers `polygon` method
+polygon :: PolygonGeom -> FeatureProperties -> Either JsonDecodeError PolygonFeature
 polygon poly props =
   decodeJson
     $ runFn2 polygonImpl (polygonGeomToArray poly) props
 
-foreign import multiPolygonImpl :: Fn2 (Array (Array (Array (Array Number)))) (Object Json) Json
+foreign import multiPolygonImpl :: Fn2 (Array (Array (Array (Array Number)))) FeatureProperties Json
 
-multiPolygon :: MultiPolygonGeom -> Object Json -> Either JsonDecodeError MultiPolygonFeature
+-- | Construct a `MultiPolygonFeature` using the @turf/helpers `multiPolygon` method
+multiPolygon :: MultiPolygonGeom -> FeatureProperties -> Either JsonDecodeError MultiPolygonFeature
 multiPolygon (MultiPolygonGeom polys) props =
   decodeJson
     $ runFn2 multiPolygonImpl (polygonGeomToArray <$> polys) props
