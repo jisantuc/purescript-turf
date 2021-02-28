@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.1.1] - 2021-02-28
 ### Changed
 - Upgraded package-set to latest 0.13.8 set [#6](https://github.com/jisantuc/purescript-turf/pull/6) (@jisantuc)
 
@@ -15,4 +17,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Added docstrings for all methods exported from Turf.Helpers [#4](https://github.com/jisantuc/purescript-turf/pull/4) (@jisantuc)
 
-[Unreleased]: https://github.com/jisantuc/purescript-turf/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/jisantuc/purescript-turf/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/jisantuc/purescript-turf/compare/v0.1.0...v0.1.1
