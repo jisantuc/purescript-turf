@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Upgraded package set to 0.14.0 [#7](https://github.com/jisantuc/purescript-turf/pull/7) (@jisantuc)
 
+### Removed
+- Removed `test-unit` dependency [#8](https://github.com/jisantuc/purescript-turf/pull/8) (@jisantuc)
+
 ## [0.1.1] - 2021-02-28
 ### Changed
 - Upgraded package-set to latest 0.13.8 set [#6](https://github.com/jisantuc/purescript-turf/pull/6) (@jisantuc)
