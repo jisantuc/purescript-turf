@@ -12,7 +12,6 @@ You can edit this file as you like.
   , "foreign-object"
   , "psci-support"
   , "quickcheck"
-  , "test-unit"
   ]
 , packages = ./packages.dhall
 , sources = [ "src/**/*.purs", "test/**/*.purs" ]
