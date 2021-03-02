@@ -21,7 +21,6 @@
         "purescript-effect": "^v3.0.0",
         "purescript-foreign-object": "^v3.0.0",
         "purescript-psci-support": "^v5.0.0",
-        "purescript-quickcheck": "^v7.0.0",
-        "purescript-test-unit": "^v15.0.0"
+        "purescript-quickcheck": "^v7.0.0"
     }
 }
