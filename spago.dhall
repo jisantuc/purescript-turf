@@ -6,12 +6,17 @@ You can edit this file as you like.
 , dependencies =
   [ "argonaut-codecs"
   , "argonaut-core"
-  , "assert"
-  , "console"
+  , "arrays"
   , "effect"
+  , "either"
+  , "foldable-traversable"
   , "foreign-object"
+  , "functions"
+  , "maybe"
+  , "prelude"
   , "psci-support"
   , "quickcheck"
+  , "tuples"
   ]
 , packages = ./packages.dhall
 , sources = [ "src/**/*.purs", "test/**/*.purs" ]
