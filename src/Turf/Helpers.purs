@@ -79,9 +79,6 @@ toArray = (\tup -> [ fst tup, snd tup ]) <<< unPointGeom
 newtype MultiPointGeom
   = MultiPointGeom (Array PointGeom)
 
-fromCoordArray :: Array Coord -> MultiPointGeom
-fromCoordArray = MultiPointGeom <<< (PointGeom <$> _)
-
 derive newtype instance eqMultiPointGeom :: Eq MultiPointGeom
 
 derive newtype instance arbMultiPointGeom :: Arbitrary MultiPointGeom
